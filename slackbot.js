@@ -54,11 +54,35 @@ if (Meteor.isServer) {
 							convo.next();
 								
 								convo.say( "Awesome! I'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"*");
-								convo.ask("Do you want me to go ahead? :smile:",function(response,convo) {
-								//convo.say('Context: ' + response.text);
-								convo.next();
+								
+								convo.ask('Do you want me to go ahead? :smile:',[
+								  {
+									pattern: bot.utterances.yes,
+									callback: function(response,convo) {
+									  convo.say(':white_check_mark:');
+									  // do something else...
+									  convo.next();
 
-								});
+									}
+								  },
+								  {
+									pattern: bot.utterances.no,
+									callback: function(response,convo) {
+									  convo.say(':negative_squared_cross_mark: Perhaps later.');
+									  // do something else...
+									  convo.next();
+									}
+								  },
+								  {
+									default: true,
+									callback: function(response,convo) {
+									  // just repeat the question
+									  convo.repeat();
+									  convo.next();
+									}
+								  }
+								]);
+								
 
 							});
 
