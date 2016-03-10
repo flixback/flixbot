@@ -139,8 +139,15 @@ if (Meteor.isServer) {
 	
 	function cleanID(id) {
 		var newString = id.substr(2); //remove two first char
-		var newString2 = newString.substr(0, newString.length-1); //remove last char 
-		console.log("Clean ID = " + newString2);
+		console.log("LENGHT = " + newString.length);
+		if(newString.length > 9){
+			var newString2 = newString.substr(0, newString.length-2); //remove last char if there is ":" at the end because of Slack autocompletion
+			console.log("Clean ID = " + newString2);
+		}
+		else{
+			var newString2 = newString.substr(0, newString.length-1); //remove last char 
+			console.log("Clean ID = " + newString2);
+		}
 		return newString2;
 	}
 	
