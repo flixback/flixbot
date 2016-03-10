@@ -10,6 +10,7 @@ if (Meteor.isServer) {
   });
 	//console.log("token="+ Meteor.settings.token);
 	var feedbackGiver ="";
+	var feedbackRequester ="";
 	var feedbackGiverName="";
 	var skills="";
 	var Botkit = Meteor.npmRequire( 'botkit' );
@@ -28,8 +29,9 @@ if (Meteor.isServer) {
 	controller.hears('hello','direct_message,direct_mention,mention',function(bot,message) {
 				
 			bot.api.users.info({"user":message.user},function(err,response) {
+				feedbackRequester = response.user.id;
 				//console.log(err);
-				//console.log(response.user.name);
+				console.log("REQUESTER = "+feedbackRequester);
 				/*bot.reply(message,'Hello ' + response.user.name + '!!');
 				bot.reply(message,'Who would like to request feedback from?');
 				bot.reply(message,'Please use the @name format.');*/
@@ -61,6 +63,8 @@ if (Meteor.isServer) {
 									callback: function(response,convo) {
 									  convo.say(':white_check_mark:');
 									  // do something else...
+									  //Feedbacks.insert({requester:feedbackRequester, giver:feedbackGiver, skills:skills});
+									  //Meteor code must always run within a Fiber. Try wrapping callbacks that you pass to non-Meteor libraries with Meteor.bindEnvironment. ???
 									  convo.next();
 
 									}
