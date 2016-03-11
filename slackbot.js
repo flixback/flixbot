@@ -13,6 +13,7 @@ if (Meteor.isServer) {
 	var feedbackRequester ="";
 	var feedbackGiverName="";
 	var skills="";
+	var context="";
 	var Botkit = Meteor.npmRequire( 'botkit' );
 	var controller = Botkit.slackbot({
 	  debug: false
@@ -30,77 +31,75 @@ if (Meteor.isServer) {
 				
 			bot.api.users.info({"user":message.user},function(err,response) {
 				feedbackRequester = response.user.id;
-				//console.log(err);
 				console.log("REQUESTER = "+feedbackRequester);
-				/*bot.reply(message,'Hello ' + response.user.name + '!!');
-				bot.reply(message,'Who would like to request feedback from?');
-				bot.reply(message,'Please use the @name format.');*/
-				
+					
 				bot.startConversation(message,function(err,convo) {
 
 					convo.ask('Who would like to request feedback from?',function(response,convo) {
-					//convo.say('you typed in '+response.text);
-					feedbackGiver = cleanID(response.text);
-					
+						feedbackGiver = cleanID(response.text); //We create and pass a CleanID
 					convo.next();
-					getNamebyID(feedbackGiver,function(cb){convo.say( "Now, I'm going to ask you a few questions to give some context to "+ cb ); feedbackGiverName = cb;});
-		
 
-						convo.ask("What are the skills you are interested in getting feedback on ?",function(response,convo) {
-						//convo.say('Skills: ' + response.text);
-						skills = response.text;
-						convo.next();
-							  
-							convo.ask("Any particular context where/when you demonstrated these skills recently?",function(response,convo) {
-							//convo.say('Context: ' + response.text);
+						//We use a trick to wrap variable into a callback function in order to use its value
+						getNamebyCleanID(feedbackGiver,function(cb){
+							convo.say("Now, I'm going to ask you a few questions to give some context to "+ cb +".This will ensure that you receive feedback on something you care to improve. It will also help to recive feedback you can practically act on."); 
+							feedbackGiverName = cb;});  // we call the function feedbackGiverName in the callback function passed as a 2nd argument in getNameCleanID function in order to force the eventloop to wait for the function to return the value of variable cb, so we can use it into the convo.say function.
 							convo.next();
-								
-								convo.say( "Awesome! I'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"*");
-								
-								convo.ask('Do you want me to go ahead? :smile:',[
-								  {
-									pattern: bot.utterances.yes,
-									callback: function(response,convo) {
-									  convo.say(':white_check_mark:');
-									  // do something else...
-									  //Feedbacks.insert({requester:feedbackRequester, giver:feedbackGiver, skills:skills});
-									  //Meteor code must always run within a Fiber. Try wrapping callbacks that you pass to non-Meteor libraries with Meteor.bindEnvironment. ???
-									  convo.next();
 
-									}
-								  },
-								  {
-									pattern: bot.utterances.no,
-									callback: function(response,convo) {
-									  convo.say(':negative_squared_cross_mark: Perhaps later.');
-									  // do something else...
-									  convo.next();
-									}
-								  },
-								  {
-									default: true,
-									callback: function(response,convo) {
-									  // just repeat the question
-									  convo.repeat();
-									  convo.next();
-									}
-								  }
-								]);
-								
+								convo.ask("What are the skills you are interested in getting feedback on ?",function(response,convo) {
+									skills = response.text;
+								convo.next();
+									
+									convo.ask("Any particular context when you demonstrated these skills? The more recent the better.",function(response,convo) {
+										context = response.text;
+									convo.next();		
+										convo.say( "Awesome! Let's quickly review that I got everything right.I'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"* in the context of *" + context +"*.");
+										convo.next();	
+
+										convo.ask('Do you want me to go ahead? :smile:',[
+										  
+										  {
+											  pattern: bot.utterances.yes,
+												callback: function(response,convo) {
+												  convo.say(':white_check_mark:');
+												  //Feedbacks.insert({requester:feedbackRequester, giver:feedbackGiver, skills:skills});
+												  //Error received: Meteor code must always run within a Fiber. Try wrapping callbacks that you pass to non-Meteor libraries with Meteor.bindEnvironment. ???
+												  convo.next();
+												}
+											  },	
+										  
+										  {
+												pattern: bot.utterances.no,
+												callback: function(response,convo) {
+												  convo.say(':negative_squared_cross_mark: Perhaps later.');
+												  convo.next();
+
+												}
+										  },
+										  
+										  {
+											default: true,
+												callback: function(response,convo) {
+												  // just repeat the question
+												  convo.repeat();
+												  convo.next();
+												}
+										  }
+
+										]);
+										
+									});
+
+								});
 
 							});
+						
+						  })
 
-						});
-					});
+
+					  });
+						
 					
-
-				  })
-
-
-			  });
-				
-			
-	});
+			});
 	
 	controller.hears({feedbackGiver},'direct_message,direct_mention,mention',function(bot,message) {
 				
@@ -116,10 +115,8 @@ if (Meteor.isServer) {
 			
 	});
 	
-	
-	function getNamebyID(id, cb) {
-
-		
+	//This function extrcat the name base don the CleanID
+	function getNamebyCleanID(id, cb) {
 		bot.api.users.info({"user":id},function(err,response) {
 			if (err) {
 				console.log(err);
@@ -128,8 +125,7 @@ if (Meteor.isServer) {
 			}
 			else{
 			console.log("Name by ID " + response.user.profile.first_name);
-
-			cb( response.user.profile.first_name);
+			cb(response.user.profile.first_name);
 
 			}
 		});
