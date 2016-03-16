@@ -125,18 +125,18 @@ if (Meteor.isServer) {
 				bot.startConversation({"channel":idIM,"user":idGiver},function(err,convo) {	
 					
 					
-					convo.say( "*"+nameRequester+"* would like to get your feedback about *"+fskills+"* in the context of *"+fcontext+"*."); 
-					convo.say("I'm now going to ask you a few questions in order to guide you to write your feedback. Let's get started!");
+					convo.say( "*"+nameRequester+"* would like to get your feedback and insights about *"+fskills+"* in the context of *"+fcontext+"*."); 
+					convo.say("I know that feedback is not always easy to communicate. To help you to articulate it properly, I'll assist you with a serie of 4 quick questions. Based on your answers, I'll take care of writing the final feedback response. Let's get started!");
 					//convo.next();
-						convo.ask("*1/4* - Can you give one *compliment* to "+nameRequester+" on something you thought was really good and can stay as it is in the future",function(response,convo) {
+						convo.ask("1/4 - First, think of something you thought was *extremely good* or that "+nameRequester+" *did extremely well*. The goal is to pinpoint something that "+nameRequester+" should keep doing in the future. What was it? \n _Hint:Try to be as specific as you can. Remember, it's a feedback about *"+fskills+"* in the context of *"+fcontext+"._",function(response,convo) {
 							
-							convo.ask("*2/4* - How about an *advice* now? You thought that was good but stills need to change",function(response,convo) {
+							convo.ask("2/4 - Let's move to *opportunities to excel*. Try to recall something you thought was good but could be easily enhanced. What would that be? \n _Hint: This is the most important piece of your feedback. People who stands out build on their strength._",function(response,convo) {
+									
 								
-								
-								convo.ask("*3/4* - Great. Now, can you give "+nameRequester+" some criticism on something that *need to be fixed* ?",function(response,convo) {
+								convo.ask("*3/4* - What specific actions would you recommend "+nameRequester+" to take? Share them with me too!\n _Hint: Examples or detailed recommendations works great to make recommendations actionable._",function(response,convo) {
 									
 									
-									convo.ask("*4/4* - Last, can you give a suggestion on *how to improve*?",function(response,convo) {
+									convo.ask("*4/4* - Awesome!. Finally, let's touch on *weaknesses*. Anything that "+nameRequester+" might really consider *fixing in priority*? Let me know. \n _Hint:Ideas, tricks or examples are usually great way to suggest how to fix this!_",function(response,convo) {
 										
 										
 										convo.say("Awesome!I'm now going to send your feedback to "+nameRequester);
