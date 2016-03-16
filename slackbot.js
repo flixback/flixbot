@@ -13,6 +13,7 @@ if (Meteor.isServer) {
 	var feedbackRequester ="";
 	var feedbackGiverName="";
 	var skills="";
+	var context="";
 	var Botkit = Meteor.npmRequire( 'botkit' );
 	var controller = Botkit.slackbot({
 	  debug: false
@@ -29,84 +30,71 @@ if (Meteor.isServer) {
 	
 	controller.hears('hello','direct_message,direct_mention,mention',function(bot,message) {
 		
-		/*clientSync = Meteor.wrapAsync(client.create, client);
-		pipeline = clientSync('MediaPipeline');	*/
-		
-		/*var botStartConversationSync = Meteor.wrapAsync(bot.startConversation,bot);
-		var convo = botStartConversationSync(message);
-		console.log("REQUESTER = "+convo.source_message.user);*/
-			
 		bot.startConversation(message,function(err,convo) {
 			feedbackRequester = convo.source_message.user;
 			console.log("REQUESTER = "+convo.source_message.user);
 			convo.ask('Who would like you to request feedback from?',function(response,convo) {
-			//convo.say('you typed in '+response.text);
+
 			feedbackGiver = cleanID(response.text);
 			console.log("GIVER = "+feedbackGiver);
-			convo.next();
-			getNamebyID(feedbackGiver,function(cb){convo.say( "Now, I'm going to ask you a few questions to give some context to "+ cb ); feedbackGiverName = cb;});
+					feedbackGiverName = response.text;
+					convo.say( 'Now, I\'m going to ask you a few questions to give some context to '+ feedbackGiverName+ ' (aka your *"coach"*).\n _Hint: This will ensure 1) that you receive feedback on something you *care improving* and 2) that you can *immediatly act on*._' ); 
+					
+					convo.ask("*What are the areas you are interested in getting feedback on?* \n _Hint: It could be soft skills, technical skills, deliverables, work habits,.. Be really specific if you are interested in a particular aspect within this area._ ",function(response,convo) {
+						skills = response.text;
+							  
+							convo.ask("Any particular context, event, or deliverable you'd like to point out to your coach?\n_Hint: The more recent the context is, the better and more accurate the feedback will be._",function(response,convo) {
+							context = response.text;
+							
+								convo.say( "Awesome! Let's quickly review that I got everything right.\nI'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"* in the context of *" + context +"*.");
+								
+								convo.ask('Do you want me to go ahead? :smile:',[
+								  {
+									pattern: bot.utterances.yes,
+									callback: function(response,convo) {
+									  convo.say('http://i.giphy.com/6mtnL2jh5HWHm.gif');
+									  goAskFeedback(bot,feedbackGiver,feedbackRequester);
+									  convo.next();
 
-			convo.ask("What are the skills you are interested in getting feedback on ?",function(response,convo) {
-				//convo.say('Skills: ' + response.text);
-				skills = response.text;
-				convo.next();
-					  
-					convo.ask("Any particular context where/when you demonstrated these skills recently?",function(response,convo) {
-					//convo.say('Context: ' + response.text);
-					convo.next();
-						
-						convo.say( "Awesome! I'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"*");
-						
-						convo.ask('Do you want me to go ahead? :smile:',[
-						  {
-							pattern: bot.utterances.yes,
-							callback: function(response,convo) {
-							  convo.say('http://i.giphy.com/6mtnL2jh5HWHm.gif');
-							  goAskFeedback(bot);
-							  //Feedbacks.insert({requester:feedbackRequester, giver:feedbackGiver, skills:skills});
-							  //Meteor code must always run within a Fiber. Try wrapping callbacks that you pass to non-Meteor libraries with Meteor.bindEnvironment. ???
-							  convo.next();
-
-							}
-						  },
-						  {
-							pattern: bot.utterances.no,
-							callback: function(response,convo) {
-							  convo.say(':negative_squared_cross_mark: Perhaps later.');
-							  // do something else...
-							  convo.next();
-							}
-						  },
-						  {
-							default: true,
-							callback: function(response,convo) {
-							  // just repeat the question
-							  convo.repeat();
-							  convo.next();
-							}
-						  }
-						],{"key":"proceed","multiple":false});
-					},{"key":"context","multiple":false});
-				},{"key":"skills","multiple":false});
-			},{"key":"fbgiver","multiple":false});
+									}
+								  },
+								  {
+									pattern: bot.utterances.no,
+									callback: function(response,convo) {
+									  convo.say(':negative_squared_cross_mark: Perhaps later.');
+									  convo.next();
+									}
+								  },
+								  {
+									default: true,
+									callback: function(response,convo) {
+									  // just repeat the question
+									  convo.repeat();
+									  convo.next();
+									}
+								  }
+								]);
+							convo.next();});
+					convo.next();});
+			convo.next();});
 			
-			convo.on('end',function(convo) {	//at the END of the convo, we take actions with the answers
+			/*convo.on('end',function(convo) {	//at the END of the convo, we take actions with the answers
 			if (convo.status=='completed' ) {
-				/*console.log(convo.extractResponse('fbgiver'));
+				console.log(convo.extractResponse('fbgiver'));
 				console.log(convo.extractResponse('skills'));
 				console.log(convo.extractResponse('context'));
-				console.log(convo.extractResponse('proceed'));*/
-				if(convo.extractResponse('proceed') == "yes"){
+				console.log(convo.extractResponse('proceed'));
+				if(proceed == true){
 					console.log("SAVE IN MONGO DB");
-					/*Feedbacks.insert({
+					Feedbacks.insert({
 						requester:feedbackRequester, 
 						giver:cleanID(convo.extractResponse('fbgiver')), 
 						skills:convo.extractResponse('skills')
-					});*/
+					});
 				}
 			}
 
-		  });
+		  });*/
 
 		  });
 
@@ -115,16 +103,17 @@ if (Meteor.isServer) {
 			
 	});
 	
-	function goAskFeedback(bot){
+	function goAskFeedback(bot,idGiver,idRequester){
 		
 		var idIM;
-		//var idRequester = "U02MGMJNX"; //GET FROM MONGODB GREG
-		var idRequester = feedbackRequester; 
-		var nameRequester;
-		//var idGiver = "U02HMNGRZ";//GET FROM MONGODB ANTO
-		var idGiver = feedbackGiver;
-		var nameGiver;
-		var fskills = skills;//GET FROM MONGODB
+		//var idRequester = "U02MGMJNX"; //GREG
+		//var idRequester = feedbackRequester; 
+		var nameRequester = "<@"+idRequester+">";
+		//var idGiver = "U02HMNGRZ";//ANTO
+		//var idGiver = feedbackGiver;
+		var nameGiver = "<@"+idGiver+">";
+		var fskills = skills;
+		var fcontext = context;
 		
 		//GET THE IM CHANNEL FROM SLACK API
 		bot.api.im.open({"user":idGiver},function(err,response) {
@@ -132,31 +121,30 @@ if (Meteor.isServer) {
 			idIM = response.channel.id;
 			console.log("idIM = "+idIM);
 			
-			getNamebyID(idGiver,function(cb){nameGiver = cb; bot.say({"channel":idIM, "text":"Hello *"+nameGiver+"*:bangbang:"});
+				bot.say({"channel":idIM, "text":"Hello *"+nameGiver+"*:bangbang:"});
 				bot.startConversation({"channel":idIM,"user":idGiver},function(err,convo) {	
-					getNamebyID(idRequester,function(cb){
-					convo.say( "*"+cb+"* would like to get your feedback about: *"+fskills+"*"); nameRequester = cb;
+					
+					
+					convo.say( "*"+nameRequester+"* would like to get your feedback about *"+fskills+"* in the context of *"+fcontext+"*."); 
 					convo.say("I'm now going to ask you a few questions in order to guide you to write your feedback. Let's get started!");
-					convo.next();
-						convo.ask("*1/4* - Can you give one advice to "+nameRequester+" on something that was good but stills need to change?",function(response,convo) {
-							convo.next();
-							convo.ask("*2/4* - How about a nice compliment now? You thought it was good and it cans stay as it is in the future",function(response,convo) {
-								//do something with response
-								convo.next();
-								convo.ask("*3/4* - Great. Now, can you give "+nameRequester+" some criticism on somehting that need to be fixed ?",function(response,convo) {
-									//do something with response
-									convo.next();
-									convo.ask("*4/4* - Last, can you give  a suggestion on how to improve?",function(response,convo) {
-										//do something with response
-										convo.next();
+					//convo.next();
+						convo.ask("*1/4* - Can you give one *compliment* to "+nameRequester+" on something you thought was really good and can stay as it is in the future",function(response,convo) {
+							
+							convo.ask("*2/4* - How about an *advice* now? You thought that was good but stills need to change",function(response,convo) {
+								
+								
+								convo.ask("*3/4* - Great. Now, can you give "+nameRequester+" some criticism on something that *need to be fixed* ?",function(response,convo) {
+									
+									
+									convo.ask("*4/4* - Last, can you give a suggestion on *how to improve*?",function(response,convo) {
+										
+										
 										convo.say("Awesome!I'm now going to send your feedback to "+nameRequester);
 										convo.ask('Do you want me to go ahead? :smile:',[
 										  {
 											pattern: bot.utterances.yes,
 											callback: function(response,convo) {
 											  convo.say('done!');
-											  //Feedbacks.insert({requester:feedbackRequester, giver:feedbackGiver, skills:skills});
-											  //Meteor code must always run within a Fiber. Try wrapping callbacks that you pass to non-Meteor libraries with Meteor.bindEnvironment. ???
 											  convo.next();
 
 											}
@@ -165,7 +153,6 @@ if (Meteor.isServer) {
 											pattern: bot.utterances.no,
 											callback: function(response,convo) {
 											  convo.say(':negative_squared_cross_mark: Perhaps later.');
-											  // do something else...
 											  convo.next();
 											}
 										  },
@@ -178,11 +165,11 @@ if (Meteor.isServer) {
 											}
 										  }
 										],{"key":"proceed","multiple":false});
-									},{"key":"q4","multiple":false});
-								},{"key":"q3","multiple":false});
-							},{"key":"q2","multiple":false});
-						},{"key":"q1","multiple":false});
-					});
+									convo.next();},{"key":"q4","multiple":false});
+								convo.next();},{"key":"q3","multiple":false});
+							convo.next();},{"key":"q2","multiple":false});
+						convo.next();},{"key":"q1","multiple":false});
+					
 					
 					convo.on('end',function(convo) {	//at the END of the convo, we take actions with the answers
 						if (convo.status=='completed' ) {
@@ -191,38 +178,38 @@ if (Meteor.isServer) {
 							console.log(convo.extractResponse('q3'));
 							console.log(convo.extractResponse('q4'));
 							console.log(convo.extractResponse('proceed'));*/
-							if(convo.extractResponse('proceed') == "yes"){
+							if(convo.extractResponse('proceed') == "yes" || convo.extractResponse('proceed') == "yup" ||convo.extractResponse('proceed') == "y" ||convo.extractResponse('proceed') == "yeah" ||convo.extractResponse('proceed') == "ok" ||convo.extractResponse('proceed') == "sure" ){
 								console.log("SAVE IN MONGO DB");
 								var values = convo.extractResponses();
-								goDeliverFeedback(bot,values);
-								/*Feedbacks.insert({
-									requester:feedbackRequester, 
-									giver:cleanID(convo.extractResponse('fbgiver')), 
-									skills:convo.extractResponse('skills')
-								});*/
+								goDeliverFeedback(bot,values, fcontext,idRequester,idGiver);
+								//goDeliverFeedback(bot,values,"fishing","U02HMNGRZ","U02MGMJNX");
+
 							}
 						}
 
 					  });
 					
 				});
-			});
+			
 			
 		});
 
 	}
 	
-	function goDeliverFeedback(bot,feedback){
+	function goDeliverFeedback(bot,feedback,context,req,giv){
 		console.log("delivering feedback");
-		var idGiver = feedbackGiver;
+		var idRequester = req; 
 		
-		bot.api.im.open({"user":idGiver},function(err,response) {
+		bot.api.im.open({"user":idRequester},function(err,response) {
 			 if (err) throw new Error(err);
 			idIM = response.channel.id;
 			console.log("idIM = "+idIM);
-			bot.startConversation({"channel":idIM,"user":idGiver},function(err,convo) {	
-				convo.say( "Looks like you have a new feedback!");
-				convo.say( feedback.q1);
+			bot.startConversation({"channel":idIM,"user":idRequester},function(err,convo) {	
+				convo.say( "Hello *<@"+req+">*! It looks like you have a new feedback from *<@"+giv+">* about *"+context+"*! This is what he wrote:");
+				convo.say( ":clap: This was really good and can stay as it is in the future : "+feedback.q1);
+				convo.say( ":slightly_smiling_face: This good but stills need to change : "+feedback.q2);
+				convo.say( ":worried: This is something that need to be improved : "+feedback.q3);
+				convo.say( ":bulb: This is a suggestion on how to improve : "+feedback.q4);
 			});
 		});
 	}
@@ -231,7 +218,7 @@ if (Meteor.isServer) {
 		goAskFeedback(bot);
 	});
 	controller.hears('send','direct_message,direct_mention,mention',function(bot,message) {
-		goDeliverFeedback(bot);
+		goDeliverFeedback(bot,feedback,"fishing","U02HMNGRZ","U02MGMJNX");
 	});
 	
 	
