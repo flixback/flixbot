@@ -43,7 +43,7 @@ if (Meteor.isServer) {
 			
 			console.log("GIVER = "+feedbackGiver);
 					var feedbackGiverName = response.text;
-					convo.say( 'Now, I\'m going to ask you a few questions to give some context to '+ feedbackGiverName+ ' (aka your *"coach"*).\n _Hint: This will ensure 1) that you receive feedback on something you *care improving* and 2) that you can *immediatly act on*._' ); 
+					convo.say( 'Now, I\'m going to ask you a few questions to give some context to '+ feedbackGiverName+ ' (aka your *"coach"*). This will ensure 1) that you receive feedback on something you *care improving* and 2) that you can *immediatly act on*.' ); 
 					
 					convo.ask("*What are the areas you are interested in getting feedback on?* \n _Hint: It could be soft skills, technical skills, deliverables, work habits,.. Be really specific if you are interested in a particular aspect within this area._ ",function(response,convo) {
 						var skills = response.text;
@@ -117,8 +117,8 @@ if (Meteor.isServer) {
 		//var idRequester = "U02MGMJNX"; //GREG
 		var idRequester = feedbacks[feedbackKey].requester; 
 		var nameRequester = "<@"+idRequester+">";
-		var idGiver = "U02HMNGRZ";//ANTO
-		//var idGiver = feedbacks[feedbackKey].giver; 
+		//var idGiver = "U02HMNGRZ";//ANTO
+		var idGiver = feedbacks[feedbackKey].giver; 
 		var nameGiver = "<@"+idGiver+">";
 		var fskills = feedbacks[feedbackKey].skills;
 		var fcontext = feedbacks[feedbackKey].context;
@@ -134,9 +134,12 @@ if (Meteor.isServer) {
 					
 					
 					convo.say( "*"+nameRequester+"* would like to get your feedback and insights about *"+fskills+"* in the context of *"+fcontext+"*."); 
-					convo.say("I know that feedback is not always easy to communicate. To help you to articulate it properly, I'll assist you with a serie of 4 quick questions. Based on your answers, I'll take care of writing the final feedback response. Let's get started!");
-					//convo.next();
-						convo.ask("1/4 - First, think of something you thought was *extremely good* or that "+nameRequester+" *did extremely well*. The goal is to pinpoint something that "+nameRequester+" should keep doing in the future. What was it? \n _Hint:Try to be as specific as you can. Remember, it's a feedback about *"+fskills+"* in the context of *"+fcontext+"._",function(response,convo) {
+					convo.ask("I know that feedback is not always easy to communicate. To help you to articulate it properly, I'll assist you with a serie of 4 quick questions. Based on your answers, I'll take care of writing the final feedback response. Are you ready?",[
+					{
+						pattern: bot.utterances.yes,
+						callback: function(response,convo) {
+						  
+						  convo.ask("1/4 - First, think of something you thought was *extremely good* or that "+nameRequester+" *did extremely well*. The goal is to pinpoint something that "+nameRequester+" should keep doing in the future. What was it? \n _Hint:Try to be as specific as you can. Remember, it's a feedback about *"+fskills+"* in the context of *"+fcontext+"*._",function(response,convo) {
 							
 							convo.ask("2/4 - Let's move to *opportunities to excel*. Try to recall something you thought was good but could be easily enhanced. What would that be? \n _Hint: This is the most important piece of your feedback. People who stands out build on their strength._",function(response,convo) {
 									
@@ -144,10 +147,10 @@ if (Meteor.isServer) {
 								convo.ask("*3/4* - What specific actions would you recommend "+nameRequester+" to take? Share them with me too!\n _Hint: Examples or detailed recommendations works great to make recommendations actionable._",function(response,convo) {
 									
 									
-									convo.ask("*4/4* - Awesome!. Finally, let's touch on *weaknesses*. Anything that "+nameRequester+" might really consider *fixing in priority*? Let me know. \n _Hint:Ideas, tricks or examples are usually great way to suggest how to fix this!_",function(response,convo) {
+									convo.ask("*4/4* - Awesome! Finally, let's touch on *weaknesses*. Anything that "+nameRequester+" might really consider *fixing in priority*? Let me know. \n _Hint:Ideas, tricks or examples are usually great way to suggest how to fix this!_",function(response,convo) {
 										
 										
-										convo.say("Awesome!I'm now going to send your feedback to "+nameRequester);
+										convo.say("That's a wrap. Thanks! I'm now going to send your feedback to "+nameRequester);
 										convo.ask('Do you want me to go ahead? :smile:',[
 										  {
 											pattern: bot.utterances.yes,
@@ -177,6 +180,27 @@ if (Meteor.isServer) {
 								convo.next();},{"key":"q3","multiple":false});
 							convo.next();},{"key":"q2","multiple":false});
 						convo.next();},{"key":"q1","multiple":false});
+
+						convo.next();}
+					  },
+					  {
+						pattern: bot.utterances.no,
+						callback: function(response,convo) {
+						  convo.say(':negative_squared_cross_mark: Perhaps later.');
+						  convo.next();
+						}
+					  },
+					  {
+						default: true,
+						callback: function(response,convo) {
+						  // just repeat the question
+						  convo.repeat();
+						  convo.next();
+						}
+					  }
+					],{"key":"proceed","multiple":false});
+					
+						
 					
 					
 					convo.on('end',function(convo) {	//at the END of the convo, we take actions with the answers
@@ -206,21 +230,21 @@ if (Meteor.isServer) {
 	
 	function goDeliverFeedback(bot,feedbackKey){
 		console.log("delivering feedback");
-		//var idRequester = feedbacks[feedbackKey].requester; 
-		var idRequester = "U02HMNGRZ";
+		var idRequester = feedbacks[feedbackKey].requester; 
+		//var idRequester = "U02HMNGRZ";
 		bot.api.im.open({"user":idRequester},function(err,response) {
 			 if (err) throw new Error(err);
 			idIM = response.channel.id;
 			console.log("idIM = "+idIM);
 			bot.startConversation({"channel":idIM,"user":idRequester},function(err,convo) {	
 				convo.say( "Hello *<@"+idRequester+">*! It looks like you have a new feedback from *<@"+feedbacks[feedbackKey].giver+">* about *"+feedbacks[feedbackKey].context+"*! This is what he wrote:");
-				convo.say( ":clap: This was really good and can stay as it is in the future : "+feedbacks[feedbackKey].values.q1);
-				convo.say( ":slightly_smiling_face: This good but stills need to change : "+feedbacks[feedbackKey].values.q2);
-				convo.say( ":worried: This is something that need to be improved : "+feedbacks[feedbackKey].values.q3);
-				convo.say( ":bulb: This is a suggestion on how to improve : "+feedbacks[feedbackKey].values.q4);
+				convo.say( ":crown: This was awesome and can stay as is in the future : \n ``` "+feedbacks[feedbackKey].values.q1+" ```");
+				convo.say( ":rocket: This will help you to stand out by building on your strenghts : \n ``` "+feedbacks[feedbackKey].values.q2+" ```");
+				convo.say( ":bulb: Here are some suggestions to get to the next level : \n ``` "+feedbacks[feedbackKey].values.q3+" ```");
+				convo.say( ":speak_no_evil: And .... because nobody is perfect ... you should definitely consider checking this out : \n ``` "+feedbacks[feedbackKey].values.q4+" ```");
 			});
 		});
-		delete feedbacks[feedbackKey];
+		//delete feedbacks[feedbackKey];
 	}
 	
 	controller.hears('test','direct_message,direct_mention,mention',function(bot,message) {
