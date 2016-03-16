@@ -8,12 +8,15 @@ if (Meteor.isServer) {
   Meteor.startup(function () {
     // code to run on server at startup
   });
-	//console.log("token="+ Meteor.settings.token);
-	var feedbackGiver ="";
-	var feedbackRequester ="";
-	var feedbackGiverName="";
-	var skills="";
-	var context="";
+	
+	var feedbacks = {};
+	//feedbacks["antoningregorydate"] = {'requester': 'antonin', 'giver': 'gregory', 'context': 'fishing'};
+	
+	/*if ("antoningregorydate" in feedbacks) {
+	   console.log(feedbacks["antoningregorydate"].context); //del a["key1"] or del a.key1
+	}*/
+	
+	
 	var Botkit = Meteor.npmRequire( 'botkit' );
 	var controller = Botkit.slackbot({
 	  debug: false
@@ -29,22 +32,24 @@ if (Meteor.isServer) {
 	
 	
 	controller.hears('hello','direct_message,direct_mention,mention',function(bot,message) {
-		
+
+
 		bot.startConversation(message,function(err,convo) {
-			feedbackRequester = convo.source_message.user;
+			var feedbackRequester = convo.source_message.user;
 			console.log("REQUESTER = "+convo.source_message.user);
 			convo.ask('Who would like you to request feedback from?',function(response,convo) {
 
-			feedbackGiver = cleanID(response.text);
+			var feedbackGiver = cleanID(response.text);
+			
 			console.log("GIVER = "+feedbackGiver);
-					feedbackGiverName = response.text;
+					var feedbackGiverName = response.text;
 					convo.say( 'Now, I\'m going to ask you a few questions to give some context to '+ feedbackGiverName+ ' (aka your *"coach"*).\n _Hint: This will ensure 1) that you receive feedback on something you *care improving* and 2) that you can *immediatly act on*._' ); 
 					
 					convo.ask("*What are the areas you are interested in getting feedback on?* \n _Hint: It could be soft skills, technical skills, deliverables, work habits,.. Be really specific if you are interested in a particular aspect within this area._ ",function(response,convo) {
-						skills = response.text;
+						var skills = response.text;
 							  
 							convo.ask("Any particular context, event, or deliverable you'd like to point out to your coach?\n_Hint: The more recent the context is, the better and more accurate the feedback will be._",function(response,convo) {
-							context = response.text;
+							var context = response.text;
 							
 								convo.say( "Awesome! Let's quickly review that I got everything right.\nI'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"* in the context of *" + context +"*.");
 								
@@ -53,8 +58,11 @@ if (Meteor.isServer) {
 									pattern: bot.utterances.yes,
 									callback: function(response,convo) {
 									  convo.say('http://i.giphy.com/6mtnL2jh5HWHm.gif');
-									  goAskFeedback(bot,feedbackGiver,feedbackRequester);
+									  feedbacks[feedbackRequester+feedbackGiver] = {'requester': feedbackRequester, 'giver': feedbackGiver, 'skills': skills, 'context': context};
+									  //console.log(feedbacks[feedbackRequester+feedbackGiver].context);
+									  goAskFeedback(bot,feedbackRequester+feedbackGiver);
 									  convo.next();
+									  
 
 									}
 								  },
@@ -103,17 +111,17 @@ if (Meteor.isServer) {
 			
 	});
 	
-	function goAskFeedback(bot,idGiver,idRequester){
+	function goAskFeedback(bot,feedbackKey){
 		
 		var idIM;
 		//var idRequester = "U02MGMJNX"; //GREG
-		//var idRequester = feedbackRequester; 
+		var idRequester = feedbacks[feedbackKey].requester; 
 		var nameRequester = "<@"+idRequester+">";
-		//var idGiver = "U02HMNGRZ";//ANTO
-		//var idGiver = feedbackGiver;
+		var idGiver = "U02HMNGRZ";//ANTO
+		//var idGiver = feedbacks[feedbackKey].giver; 
 		var nameGiver = "<@"+idGiver+">";
-		var fskills = skills;
-		var fcontext = context;
+		var fskills = feedbacks[feedbackKey].skills;
+		var fcontext = feedbacks[feedbackKey].context;
 		
 		//GET THE IM CHANNEL FROM SLACK API
 		bot.api.im.open({"user":idGiver},function(err,response) {
@@ -179,10 +187,10 @@ if (Meteor.isServer) {
 							console.log(convo.extractResponse('q4'));
 							console.log(convo.extractResponse('proceed'));*/
 							if(convo.extractResponse('proceed') == "yes" || convo.extractResponse('proceed') == "yup" ||convo.extractResponse('proceed') == "y" ||convo.extractResponse('proceed') == "yeah" ||convo.extractResponse('proceed') == "ok" ||convo.extractResponse('proceed') == "sure" ){
-								console.log("SAVE IN MONGO DB");
+								
 								var values = convo.extractResponses();
-								goDeliverFeedback(bot,values, fcontext,idRequester,idGiver);
-								//goDeliverFeedback(bot,values,"fishing","U02HMNGRZ","U02MGMJNX");
+								feedbacks[feedbackKey] = {'requester': idRequester, 'giver': idGiver, 'skills': fskills, 'context': fcontext, 'values':values};
+								goDeliverFeedback(bot,feedbackKey);
 
 							}
 						}
@@ -196,22 +204,23 @@ if (Meteor.isServer) {
 
 	}
 	
-	function goDeliverFeedback(bot,feedback,context,req,giv){
+	function goDeliverFeedback(bot,feedbackKey){
 		console.log("delivering feedback");
-		var idRequester = req; 
-		
+		//var idRequester = feedbacks[feedbackKey].requester; 
+		var idRequester = "U02HMNGRZ";
 		bot.api.im.open({"user":idRequester},function(err,response) {
 			 if (err) throw new Error(err);
 			idIM = response.channel.id;
 			console.log("idIM = "+idIM);
 			bot.startConversation({"channel":idIM,"user":idRequester},function(err,convo) {	
-				convo.say( "Hello *<@"+req+">*! It looks like you have a new feedback from *<@"+giv+">* about *"+context+"*! This is what he wrote:");
-				convo.say( ":clap: This was really good and can stay as it is in the future : "+feedback.q1);
-				convo.say( ":slightly_smiling_face: This good but stills need to change : "+feedback.q2);
-				convo.say( ":worried: This is something that need to be improved : "+feedback.q3);
-				convo.say( ":bulb: This is a suggestion on how to improve : "+feedback.q4);
+				convo.say( "Hello *<@"+idRequester+">*! It looks like you have a new feedback from *<@"+feedbacks[feedbackKey].giver+">* about *"+feedbacks[feedbackKey].context+"*! This is what he wrote:");
+				convo.say( ":clap: This was really good and can stay as it is in the future : "+feedbacks[feedbackKey].values.q1);
+				convo.say( ":slightly_smiling_face: This good but stills need to change : "+feedbacks[feedbackKey].values.q2);
+				convo.say( ":worried: This is something that need to be improved : "+feedbacks[feedbackKey].values.q3);
+				convo.say( ":bulb: This is a suggestion on how to improve : "+feedbacks[feedbackKey].values.q4);
 			});
 		});
+		delete feedbacks[feedbackKey];
 	}
 	
 	controller.hears('test','direct_message,direct_mention,mention',function(bot,message) {
