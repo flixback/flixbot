@@ -40,19 +40,16 @@ if (Meteor.isServer) {
 					convo.next();
 
 						//We use a trick to wrap variable into a callback function in order to use its value
-						getNamebyCleanID(feedbackGiver,function(cb){
-							convo.say("Now, I'm going to ask you a few questions to give some context to "+ cb +".This will ensure that you receive feedback on something you care to improve. It will also help to recive feedback you can practically act on."); 
-							feedbackGiverName = cb;});  // we call the function feedbackGiverName in the callback function passed as a 2nd argument in getNameCleanID function in order to force the eventloop to wait for the function to return the value of variable cb, so we can use it into the convo.say function.
-							convo.next();
+							convo.say('Now, I\'m going to ask you a few questions to give some context to the person who\'s giving you feedback (aka your *"coach"*).\n _Hint: This will ensure 1) that you receive feedback on something you *care improving* and 2) that you can *immediatly act on*._');  
 
-								convo.ask("What are the skills you are interested in getting feedback on ?",function(response,convo) {
+								convo.ask("*What are the areas you are interested in getting feedback on?* _Hint: It could be soft skills, technical skills, deliverables, work habits,.. Be really specific if you are interested in a particular aspect within this area._ ",function(response,convo) {
 									skills = response.text;
 								convo.next();
 									
-									convo.ask("Any particular context when you demonstrated these skills? The more recent the better.",function(response,convo) {
+									convo.ask("Any particular context, event, or deliverable you'd like to point out to your coach?\n_Hint: The more recent the context is, the better and more accurate the feedback will be._",function(response,convo) {
 										context = response.text;
 									convo.next();		
-										convo.say( "Awesome! Let's quickly review that I got everything right.I'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"* in the context of *" + context +"*.");
+										convo.say( "Awesome! Let's quickly review that I got everything right.\nI'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"* in the context of *" + context +"*.");
 										convo.next();	
 
 										convo.ask('Do you want me to go ahead? :smile:',[
@@ -60,9 +57,9 @@ if (Meteor.isServer) {
 										  {
 											  pattern: bot.utterances.yes,
 												callback: function(response,convo) {
+												  controller.storage.teams.save({requester:feedbackRequester, giver:feedbackGiver, skills:skills}, function(err){});
+												  
 												  convo.say(':white_check_mark:');
-												  //Feedbacks.insert({requester:feedbackRequester, giver:feedbackGiver, skills:skills});
-												  //Error received: Meteor code must always run within a Fiber. Try wrapping callbacks that you pass to non-Meteor libraries with Meteor.bindEnvironment. ???
 												  convo.next();
 												}
 											  },	
@@ -90,12 +87,10 @@ if (Meteor.isServer) {
 									});
 
 								});
-
 							});
 						
 						  })
-
-
+						
 					  });
 						
 					
