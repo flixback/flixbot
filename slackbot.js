@@ -48,7 +48,7 @@ if (Meteor.isServer) {
 					convo.ask("*What are the areas you are interested in getting feedback on?* \n _Hint: It could be soft skills, technical skills, deliverables, work habits,.. Be really specific if you are interested in a particular aspect within this area._ ",function(response,convo) {
 						var skills = response.text;
 							  
-							convo.ask("Any particular context, event, or deliverable you'd like to point out to your coach?\n_Hint: The more recent the context is, the better and more accurate the feedback will be._",function(response,convo) {
+							convo.ask("*Any particular context, event, or deliverable you'd like to point out to your coach?*\n_Hint: The more recent the context is, the better and more accurate the feedback will be._",function(response,convo) {
 							var context = response.text;
 							
 								convo.say( "Awesome! Let's quickly review that I got everything right.\nI'm now going to ask *"+ feedbackGiverName + "* for some feedback about *"+ skills+"* in the context of *" + context +"*.");
