@@ -1,12 +1,19 @@
 Feedbacks = new Mongo.Collection('feedbacks');
-token = Meteor.settings.token;
-if (Meteor.isClient) {
+//token = Meteor.settings.token;
+clientId = Meteor.settings.clientId;
+clientSecret = Meteor.settings.clientSecret;
+port = Meteor.settings.port;
+/*if (Meteor.isClient) {
   
-}
+}*/
 
 if (Meteor.isServer) {
   Meteor.startup(function () {
     // code to run on server at startup
+	if (!clientId || !clientSecret || !port) {
+	  console.log('Error: Specify clientId clientSecret and port in environment');
+	  process.exit(1);
+	}
   });
 	
 	var feedbacks = {};
@@ -19,17 +26,81 @@ if (Meteor.isServer) {
 	
 	var Botkit = Meteor.npmRequire( 'botkit' );
 	var controller = Botkit.slackbot({
-	  debug: false
-	});
-	var bot = controller.spawn({
-	  token: token
-	})
-	bot.startRTM(function(err,bot,payload) {
-	  if (err) {
-		throw new Error('Could not connect to Slack');
+	  debug: false,
+	  json_file_store: './db_slackbutton_bot/',
+	}).configureSlackApp(
+	  {
+		clientId: clientId,
+		clientSecret: clientSecret,
+		scopes: ['bot'],
 	  }
+	);
+	
+	controller.setupWebserver(port,function(err,webserver) {
+	  controller.createWebhookEndpoints(controller.webserver);
+
+	  controller.createOauthEndpoints(controller.webserver,function(err,req,res) {
+		if (err) {
+		  res.status(500).send('ERROR: ' + err);
+		} else {
+		  res.send('Success!');
+		}
+	  });
 	});
 	
+	// just a simple way to make sure we don't
+	// connect to the RTM twice for the same team
+	var _bots = {};
+	function trackBot(bot) {
+	  _bots[bot.config.token] = bot;
+	}
+	
+	controller.on('create_bot',function(bot,config) {
+
+	  if (_bots[bot.config.token]) {
+		// already online! do nothing.
+	  } else {
+		bot.startRTM(function(err) {
+		
+		  if (!err) {
+			trackBot(bot);
+		  }
+
+		  bot.startPrivateConversation({user: config.createdBy},function(err,convo) {
+			if (err) {
+			  console.log(err);
+			} else {
+			  convo.say('I am a bot that has just joined your team');
+			  convo.say('You must now /invite me to a channel so that I can be of use!');
+			}
+		  });
+
+		});
+	  }
+
+	});
+	
+	controller.storage.teams.all(function(err,teams) {
+
+	  if (err) {
+		throw new Error(err);
+	  }
+
+	  // connect all teams with bots up to slack!
+	  for (var t  in teams) {
+		  console.log("TEAM");
+		if (teams[t].bot) {
+		  controller.spawn(teams[t]).startRTM(function(err, bot) {
+			if (err) {
+			  console.log('Error connecting bot to Slack:',err);
+			} else {
+			  trackBot(bot);
+			}
+		  });
+		}
+	  }
+
+	});
 	
 	controller.hears('hello','direct_message,direct_mention,mention',function(bot,message) {
 
